@@ -5,11 +5,13 @@ var Form = React.createClass({
   handleSubmit: function(event) {
     event.preventDefault();
     var text = this.refs.text.getDOMNode().value;
-    var slides = text.split("\n");
+    var slides = text.split("\n").filter(function(word) {
+      return !!word.trim();
+    });
     var promises = slides.map(function(word) {
       return new Promise(function(resolve, reject) {
         var req = new XMLHttpRequest();
-        var url = "http://api.giphy.com/v1/gifs/search?q=" + word + "&api_key=dc6zaTOxFJmzC&limit=1&offset=0";
+        var url = "http://api.giphy.com/v1/gifs/random?api_key=dc6zaTOxFJmzC&tag=" + word;
         req.open("GET", url, true);
         req.setRequestHeader('Content-Type', 'application/json');
         req.setRequestHeader('Accept', 'application/json');
@@ -18,10 +20,10 @@ var Form = React.createClass({
           try {
             resolve({
               word: word,
-              image: req.response.data[0].images.fixed_height.url
+              image: req.response.data.image_original_url
             });
           } catch (error) {
-            reject(error);
+            resolve({word: word});
           }
         };
         req.onerror = req.ontimeout = function(event) {
@@ -34,8 +36,8 @@ var Form = React.createClass({
         req.send();
       });
     });
-    Promise.all(promises).then(function(slideInfo) {
-      this.props.onSlideInfoReceived(slideInfo);
+    Promise.all(promises).then(function(slidesInfo) {
+      this.props.onSlideInfoReceived(slidesInfo);
     }.bind(this));
   },
 
@@ -56,11 +58,22 @@ var Form = React.createClass({
 });
 
 var Slide = React.createClass({
+  _getImage: function() {
+    if (this.props.image) {
+      return <img src={this.props.image} />;
+    }
+    return  (
+      <p style={{background:"red", color:"#fff", height:"200px"}}>
+        No result for {this.props.word}.
+      </p>
+    );
+  },
+
   render: function() {
     return (
       <section>
         <h1>{this.props.word}</h1>
-        <img src={this.props.image} />
+        {this._getImage()}
       </section>
     );
   }
@@ -71,21 +84,26 @@ var Slideshow = React.createClass({
     return {slides: []};
   },
 
-  onSlideInfoReceived: function(slideInfo) {
-    this.setState({
-      slides: this.state.slides.concat(slideInfo)
-    });
+  componentDidUpdate: function() {
+    Reveal.initialize();
+  },
+
+  onSlideInfoReceived: function(slidesInfo) {
+    this.setState({slides: slidesInfo});
   },
 
   render: function() {
     var slidesComponents = this.state.slides.map(function(slide, i) {
-      console.log(slide, slide.word);
       return <Slide key={i} word={slide.word} image={slide.image} />;
     }.bind(this));
     return (
       <div>
         <Form onSlideInfoReceived={this.onSlideInfoReceived} />
-        {slidesComponents}
+        <div className="reveal">
+          <div className="slides">
+            {slidesComponents}
+          </div>
+        </div>
       </div>
     );
   }
