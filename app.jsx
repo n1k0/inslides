@@ -37,6 +37,10 @@ var Form = React.createClass({
     return {text: this.props.text || ""};
   },
 
+  componentWillReceiveProps: function(nextProps) {
+    this.setState({text: nextProps.text});
+  },
+
   handleSubmit: function(event) {
     event.preventDefault();
     var text = this.refs.text.getDOMNode().value;
@@ -48,7 +52,6 @@ var Form = React.createClass({
   },
 
   handleTextChange: function(event) {
-    console.log("text changed", event.target.value);
     this.setState({text: event.target.value});
   },
 
@@ -103,6 +106,8 @@ var Slideshow = React.createClass({
     return hash.slice(1).split(",");
   },
 
+  // XXX should be implemented, but check for how to check that
+  // two arrays have diffed in js
   // shouldComponentUpdate: function(nextProps, nextState) {
   //   return nextState.words !== this.state.words;
   // },
@@ -119,9 +124,7 @@ var Slideshow = React.createClass({
     var words = this.getWordsFromUrlHash();
     this.onWordsReceived(words);
     window.addEventListener("hashchange", function(event) {
-      console.log("hash words changed", this.getWordsFromUrlHash());
-      var words = this.getWordsFromUrlHash();
-      this.onWordsReceived(words);
+      this.onWordsReceived(this.getWordsFromUrlHash());
     }.bind(this));
   },
 
@@ -138,12 +141,9 @@ var Slideshow = React.createClass({
   },
 
   render: function() {
-    console.log('Slideshow#state:', this.state);
-    console.log("joined", this.state.words.join("\n"));
     var slidesComponents = this.state.slides.map(function(slide, i) {
       return <Slide key={i} word={slide.word} image={slide.image} />;
     }.bind(this));
-    // XXX: bug: Form component should be notified of words state changes
     return (
       <div>
         <Form text={this.state.words.join("\n")}
