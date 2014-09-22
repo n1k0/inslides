@@ -16,10 +16,10 @@ a {
 img {
   width: 100%;
 }
-form {
-  width: 100%;
+.reveal form {
+  margin: 0px auto;
+  width: 50%;
   min-width: 320px;
-  margin: 0 auto;
 }
 textarea {
   width: 100%;
