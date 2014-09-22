@@ -3,11 +3,11 @@ var apiKey = "dc6zaTOxFJmzC"; // data.embed_url
 
 function requestGifFromWord(word, resolve, reject) {
   var req = new XMLHttpRequest();
-  var url = "http://api.giphy.com/v1/gifs/random?api_key=dc6zaTOxFJmzC&tag=" + word;
+  var url = "http://api.giphy.com/v1/gifs/random?api_key=dc6zaTOxFJmzC&tag=" + encodeURIComponent(word);
   req.open("GET", url, true);
-  req.setRequestHeader('Content-Type', 'application/json');
-  req.setRequestHeader('Accept', 'application/json');
-  req.responseType = 'json';
+  req.setRequestHeader("Content-Type", "application/json");
+  req.setRequestHeader("Accept", "application/json");
+  req.responseType = "json";
   req.onload = function() {
     try {
       resolve({
@@ -34,7 +34,7 @@ var Form = React.createClass({
   },
 
   getInitialState: function() {
-    return {text: this.props.text || ""};
+    return {text: this.props.text};
   },
 
   componentWillReceiveProps: function(nextProps) {
@@ -62,17 +62,29 @@ var Form = React.createClass({
           <textarea ref="text" value={this.state.text}
                     onChange={this.handleTextChange} />
         </label>
-        <button>Submit</button>
+        <p><button>Submit</button></p>
       </form>
     );
   }
 });
 
 var Slide = React.createClass({
+  render: function() {
+    return (
+      <section>
+        {this.props.title ? <h1>{this.props.title}</h1> : null}
+        {this.props.children}
+      </section>
+    );
+  }
+});
+
+var WordSlide = React.createClass({
   _getImage: function() {
     if (this.props.image) {
       return <img src={this.props.image} />;
     }
+    // XXX find another random image as a fallback
     return  (
       <p style={{background:"red", color:"#fff", height:"200px"}}>
         No result for {this.props.word}.
@@ -82,10 +94,9 @@ var Slide = React.createClass({
 
   render: function() {
     return (
-      <section>
-        <h1>{this.props.word}</h1>
+      <Slide title={this.props.word}>
         {this._getImage()}
-      </section>
+      </Slide>
     );
   }
 });
@@ -93,21 +104,19 @@ var Slide = React.createClass({
 var Slideshow = React.createClass({
   getInitialState: function() {
     return {
-      words: this.getWordsFromUrlHash(),
+      words: [],
       slides: []
     };
   },
 
-  getWordsFromUrlHash: function() {
-    var hash = document.location.hash;
-    if (!hash || hash.length === 0) {
-      return [];
-    }
-    return hash.slice(1).split(",");
+  getWordsFromLocationHash: function() {
+    return document.location.hash.slice(1).split(",").filter(function(word) {
+      return !!word.trim();
+    });
   },
 
   // XXX should be implemented, but check for how to check that
-  // two arrays have diffed in js
+  // two arrays have diffed in js/react
   // shouldComponentUpdate: function(nextProps, nextState) {
   //   return nextState.words !== this.state.words;
   // },
@@ -121,10 +130,9 @@ var Slideshow = React.createClass({
   },
 
   componentDidMount: function() {
-    var words = this.getWordsFromUrlHash();
-    this.onWordsReceived(words);
-    window.addEventListener("hashchange", function(event) {
-      this.onWordsReceived(this.getWordsFromUrlHash());
+    this.onWordsReceived(this.getWordsFromLocationHash());
+    window.addEventListener("hashchange", function() {
+      this.onWordsReceived(this.getWordsFromLocationHash());
     }.bind(this));
   },
 
@@ -142,14 +150,17 @@ var Slideshow = React.createClass({
 
   render: function() {
     var slidesComponents = this.state.slides.map(function(slide, i) {
-      return <Slide key={i} word={slide.word} image={slide.image} />;
+      return <WordSlide key={i} word={slide.word} image={slide.image} />;
     }.bind(this));
     return (
       <div>
-        <Form text={this.state.words.join("\n")}
-              onWordsReceived={this.onWordsReceived} />
         <div className="reveal">
           <div className="slides">
+            <Slide title="Inslides">
+              <p>Enter one term per line and generate a fancy slideshow.</p>
+              <Form text={this.state.words.join("\n")}
+                    onWordsReceived={this.onWordsReceived} />
+            </Slide>
             {slidesComponents}
           </div>
         </div>
