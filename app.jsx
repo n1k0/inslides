@@ -96,6 +96,10 @@ var Slide = React.createClass({
 });
 
 var WordSlide = React.createClass({
+  shouldComponentUpdate: function(nextProps) {
+    return nextProps.word !== this.props.word;
+  },
+
   _getImage: function() {
     if (this.props.image) {
       return <img src={this.props.image} />;
@@ -113,6 +117,29 @@ var WordSlide = React.createClass({
       <Slide title={this.props.word}>
         {this._getImage()}
       </Slide>
+    );
+  }
+});
+
+var Loader = React.createClass({
+  getDefaultProps: function() {
+    return {current: 0};
+  },
+
+  render: function() {
+    if (!this.props.total || !this.props.current) {
+      return null;
+    }
+    if (this.props.total === this.props.current) {
+      return (
+        <p>
+          Your slideshow is ready. Press the right arrow key and speak up.
+          Press <kbd>ESC</kbd> to get an overview.
+        </p>
+      );
+    }
+    return (
+      <p>GIFing slide {this.props.current}/{this.props.total}.</p>
     );
   }
 });
@@ -163,21 +190,24 @@ var Slideshow = React.createClass({
   },
 
   generateSlides: function() {
+    this.setState({loading: 0});
     var promises = this.state.words.map(function(word) {
       return GiphyAPI.request("/random", {tag: word}).then(function(result) {
         if (!result.image) {
           return GiphyAPI.request("/random").then(function(result) {
+            this.setState({loading: this.state.loading + 1});
             result.word = word;
             return result;
-          });
+          }.bind(this));
         }
+        this.setState({loading: this.state.loading + 1});
         result.word = word;
         return result;
-      });
-    });
+      }.bind(this));
+    }.bind(this));
     Promise.all(promises).then(function(slidesInfo) {
       this.setState({slides: slidesInfo});
-      Reveal.navigateRight();
+      //Reveal.navigateRight();
     }.bind(this));
   },
 
@@ -190,13 +220,12 @@ var Slideshow = React.createClass({
         <div className="reveal">
           <div className="slides">
             <Slide title={<h1><a href="./#">Inslides</a></h1>}>
-              <p>
-                Enter one term per line and generate a fancy slideshow.
-                Press <kbd>ESC</kbd> to get an overview.
-              </p>
+              <p>Enter one term per line and generate a fancy slideshow.</p>
               <Form text={this.state.words.join("\n")}
                     updateWords={this.updateWords}
                     onWordsReceived={this.onWordsReceived} />
+              <Loader total={this.state.words.length}
+                      current={this.state.loading} />
             </Slide>
             {slidesComponents}
           </div>
