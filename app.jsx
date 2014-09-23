@@ -1,31 +1,52 @@
 /** @jsx React.DOM */
-var apiKey = "dc6zaTOxFJmzC"; // data.embed_url
+var GiphyAPI = {
+  apiKey: "dc6zaTOxFJmzC", // Giphy public API key
+  baseUrl: "http://api.giphy.com/v1/gifs",
 
-function requestGifFromWord(word, resolve, reject) {
-  var req = new XMLHttpRequest();
-  var url = "http://api.giphy.com/v1/gifs/random?api_key=dc6zaTOxFJmzC&tag=" + encodeURIComponent(word);
-  req.open("GET", url, true);
-  req.setRequestHeader("Content-Type", "application/json");
-  req.setRequestHeader("Accept", "application/json");
-  req.responseType = "json";
-  req.onload = function() {
-    try {
-      resolve({
-        word: word,
-        image: req.response.data.image_original_url
-      });
-    } catch (error) {
-      resolve({word: word});
+  _buildUrl: function(endpoint, params) {
+    // XXX if we wanted to do things properly, we should build a full qs instead
+    params = params || {};
+    var url = this.baseUrl + endpoint + "?api_key=" + this.apiKey;
+    if ("tag" in params) {
+      url += "&tag=" + encodeURIComponent(params.tag);
     }
-  };
-  req.onerror = req.ontimeout = function(event) {
-    reject({
-      status: event.target.status,
-      message: event.target.statusText,
-      response: event.target,
+    return url;
+  },
+
+  request: function(endpoint, params, resolve, reject) {
+    var req = new XMLHttpRequest();
+    req.open("GET", this._buildUrl(endpoint, params), true);
+    req.setRequestHeader("Content-Type", "application/json");
+    req.setRequestHeader("Accept", "application/json");
+    req.responseType = "json";
+    return new Promise(function(resolve, reject) {
+      req.onload = function() {
+        try {
+          resolve({image: req.response.data.image_original_url});
+        } catch (error) {
+          reject({});
+        }
+      };
+      req.onerror = req.ontimeout = function(event) {
+        reject({
+          status: event.target.status,
+          message: event.target.statusText,
+          response: event.target,
+        });
+      };
+      req.send();
     });
-  };
-  req.send();
+  }
+};
+
+function textToWords(text) {
+  return text.split("\n").filter(function(word) {
+    return !!word.trim();
+  });
+}
+
+function wordsToHash(words) {
+  return words.join(",");
 }
 
 var Form = React.createClass({
@@ -43,12 +64,7 @@ var Form = React.createClass({
 
   handleSubmit: function(event) {
     event.preventDefault();
-    var text = this.refs.text.getDOMNode().value;
-    var words = text.split("\n").filter(function(word) {
-      return !!word.trim();
-    });
-    this.props.onWordsReceived(words);
-    document.location.hash = words.join(",");
+    this.props.updateWords(textToWords(this.refs.text.getDOMNode().value));
   },
 
   handleTextChange: function(event) {
@@ -62,7 +78,7 @@ var Form = React.createClass({
           <textarea ref="text" value={this.state.text}
                     onChange={this.handleTextChange} />
         </label>
-        <p><button>Submit</button></p>
+        <p><button>Let me ridicule myself</button></p>
       </form>
     );
   }
@@ -104,7 +120,7 @@ var WordSlide = React.createClass({
 var Slideshow = React.createClass({
   getInitialState: function() {
     return {
-      words: [],
+      words: this.getWordsFromLocationHash(),
       slides: []
     };
   },
@@ -115,12 +131,6 @@ var Slideshow = React.createClass({
     });
   },
 
-  // XXX should be implemented, but check for how to check that
-  // two arrays have diffed in js/react
-  // shouldComponentUpdate: function(nextProps, nextState) {
-  //   return nextState.words !== this.state.words;
-  // },
-
   componentDidUpdate: function() {
     try {
       Reveal.initialize();
@@ -129,22 +139,45 @@ var Slideshow = React.createClass({
     }
   },
 
-  componentDidMount: function() {
-    this.onWordsReceived(this.getWordsFromLocationHash());
-    window.addEventListener("hashchange", function() {
-      this.onWordsReceived(this.getWordsFromLocationHash());
-    }.bind(this));
+  componentWillMount: function() {
+    window.addEventListener("hashchange", this.onUrlHashChanged);
   },
 
-  onWordsReceived: function(words) {
-    this.setState({slides: [], words: words});
-    var promises = words.map(function(word) {
-      return new Promise(function(resolve, reject) {
-        requestGifFromWord(word, resolve, reject);
+  componentDidMount: function() {
+    this.generateSlides();
+  },
+
+  onUrlHashChanged: function() {
+    Reveal.navigateTo(0);
+    this.setState({words: this.getWordsFromLocationHash()});
+    this.generateSlides();
+  },
+
+  /**
+   * Words list is updated by setting the current URL hash.
+   * @param  {Array} words List of words.
+   */
+  updateWords: function(words) {
+    // Side effect!
+    document.location.hash = wordsToHash(words);
+  },
+
+  generateSlides: function() {
+    var promises = this.state.words.map(function(word) {
+      return GiphyAPI.request("/random", {tag: word}).then(function(result) {
+        if (!result.image) {
+          return GiphyAPI.request("/random").then(function(result) {
+            result.word = word;
+            return result;
+          });
+        }
+        result.word = word;
+        return result;
       });
     });
     Promise.all(promises).then(function(slidesInfo) {
       this.setState({slides: slidesInfo});
+      Reveal.navigateRight();
     }.bind(this));
   },
 
@@ -156,9 +189,13 @@ var Slideshow = React.createClass({
       <div>
         <div className="reveal">
           <div className="slides">
-            <Slide title="Inslides">
-              <p>Enter one term per line and generate a fancy slideshow.</p>
+            <Slide title={<h1><a href="./#">Inslides</a></h1>}>
+              <p>
+                Enter one term per line and generate a fancy slideshow.
+                Press <kbd>ESC</kbd> to get an overview.
+              </p>
               <Form text={this.state.words.join("\n")}
+                    updateWords={this.updateWords}
                     onWordsReceived={this.onWordsReceived} />
             </Slide>
             {slidesComponents}
