@@ -1,7 +1,7 @@
 /** @jsx React.DOM */
 var GiphyAPI = {
   apiKey: "dc6zaTOxFJmzC", // Giphy public API key
-  baseUrl: "http://api.giphy.com/v1/gifs",
+  baseUrl: "https://api.giphy.com/v1/gifs",
 
   _buildUrl: function(endpoint, params) {
     // XXX if we wanted to do things properly, we should build a full qs instead
