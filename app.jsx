@@ -40,9 +40,9 @@ var GiphyAPI = {
 };
 
 function textToWords(text) {
-  return text.split("\n").filter(function(word) {
-    return !!word.trim();
-  });
+  return text.split("\n")
+             .map(function(word) {return word.trim();})
+             .filter(function(word) {return !!word;});
 }
 
 function wordsToHash(words) {
@@ -64,7 +64,8 @@ var Form = React.createClass({
 
   handleSubmit: function(event) {
     event.preventDefault();
-    this.props.updateWords(textToWords(this.refs.text.getDOMNode().value));
+    var text = this.refs.text.getDOMNode().value.trim();
+    this.props.updateWords(textToWords(text));
   },
 
   handleTextChange: function(event) {
@@ -76,9 +77,13 @@ var Form = React.createClass({
       <form onSubmit={this.handleSubmit}>
         <label>
           <textarea ref="text" value={this.state.text}
-                    onChange={this.handleTextChange} />
+                    onChange={this.handleTextChange} required />
         </label>
-        <p><button>Let me ridicule myself</button></p>
+        <p>
+          <button disabled={this.state.text.trim().length < 2}>
+            Let me ridicule myself
+          </button>
+        </p>
       </form>
     );
   }
@@ -88,7 +93,7 @@ var Slide = React.createClass({
   render: function() {
     return (
       <section>
-        {this.props.title ? <h1>{this.props.title}</h1> : null}
+        {this.props.title || null}
         {this.props.children}
       </section>
     );
@@ -100,22 +105,10 @@ var WordSlide = React.createClass({
     return nextProps.word !== this.props.word;
   },
 
-  _getImage: function() {
-    if (this.props.image) {
-      return <img src={this.props.image} />;
-    }
-    // XXX find another random image as a fallback
-    return  (
-      <p style={{background:"red", color:"#fff", height:"200px"}}>
-        No result for {this.props.word}.
-      </p>
-    );
-  },
-
   render: function() {
     return (
-      <Slide title={this.props.word}>
-        {this._getImage()}
+      <Slide title={<h1>{this.props.word}</h1>}>
+        <img src={this.props.image} />
       </Slide>
     );
   }
@@ -133,6 +126,7 @@ var Loader = React.createClass({
     if (this.props.total === this.props.current) {
       return (
         <p>
+          <span className="ok">√</span>
           Your slideshow is ready. Press the right arrow key and speak up.
           Press <kbd>ESC</kbd> to get an overview.
         </p>
@@ -174,12 +168,6 @@ var Slideshow = React.createClass({
     this.generateSlides();
   },
 
-  onUrlHashChanged: function() {
-    Reveal.navigateTo(0);
-    this.setState({words: this.getWordsFromLocationHash()});
-    this.generateSlides();
-  },
-
   /**
    * Words list is updated by setting the current URL hash.
    * @param  {Array} words List of words.
@@ -187,6 +175,12 @@ var Slideshow = React.createClass({
   updateWords: function(words) {
     // Side effect!
     document.location.hash = wordsToHash(words);
+  },
+
+  onUrlHashChanged: function() {
+    Reveal.navigateTo(0);
+    this.setState({words: this.getWordsFromLocationHash()});
+    this.generateSlides();
   },
 
   generateSlides: function() {
@@ -207,7 +201,6 @@ var Slideshow = React.createClass({
     }.bind(this));
     Promise.all(promises).then(function(slidesInfo) {
       this.setState({slides: slidesInfo});
-      //Reveal.navigateRight();
     }.bind(this));
   },
 
@@ -219,8 +212,12 @@ var Slideshow = React.createClass({
       <div>
         <div className="reveal">
           <div className="slides">
-            <Slide title={<h1><a href="./#">Inslides</a></h1>}>
-              <p>Enter one term per line and generate a fancy slideshow.</p>
+            <Slide title={<h1><a href="./">Inslides</a></h1>}>
+              <p>
+                Enter one term per line and generate a fancy slideshow.
+                {' '}
+                <a href="#javascript,evil,fun">Example</a>
+              </p>
               <Form text={this.state.words.join("\n")}
                     updateWords={this.updateWords}
                     onWordsReceived={this.onWordsReceived} />

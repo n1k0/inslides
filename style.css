@@ -55,6 +55,10 @@ button {
   padding: .5rem;
   margin-top: .2rem;
 }
+button:disabled {
+  background-color: #666;
+  color: #eee;
+}
 footer {
   position: fixed;
   bottom: 0;
@@ -66,4 +70,14 @@ footer {
   background-color: #000;
   color: #aaa;
   z-index: 99999999;
+}
+.reveal .ok {
+  display: inline-block;
+  background-color: green;
+  border-radius: 1rem;
+  margin-right: .4rem;
+  font-size: 10px;
+  width: 1.2rem;
+  height: 1.2rem;
+  vertical-align: bottom;
 }
